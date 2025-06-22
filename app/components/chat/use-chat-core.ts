@@ -108,15 +108,26 @@ export function useChatCore({
     }
   }, [prompt, setInput])
 
-  // Reset messages when navigating from a chat to home
-  if (
-    prevChatIdRef.current !== null &&
-    chatId === null &&
-    messages.length > 0
-  ) {
-    setMessages([])
-  }
-  prevChatIdRef.current = chatId
+  // Handle chatId changes - reset or update messages accordingly
+  useEffect(() => {
+    if (prevChatIdRef.current !== chatId) {
+      if (chatId === null) {
+        // Reset messages when navigating from a chat to home
+        setMessages([])
+      } else if (initialMessages.length > 0) {
+        // Update messages when navigating to a different chat with existing messages
+        setMessages(initialMessages)
+      }
+      prevChatIdRef.current = chatId
+    }
+  }, [chatId, initialMessages, setMessages])
+
+  // Also update messages when initialMessages change for the same chatId
+  useEffect(() => {
+    if (chatId && initialMessages.length > 0 && messages.length === 0) {
+      setMessages(initialMessages)
+    }
+  }, [chatId, initialMessages, messages.length, setMessages])
 
   // Submit action
   const submit = useCallback(async () => {

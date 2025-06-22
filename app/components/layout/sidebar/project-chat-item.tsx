@@ -199,7 +199,7 @@ export function ProjectChatItem({ chat, formatDate }: ProjectChatItemProps) {
       ref={containerRef}
     >
       <Link
-        href={`/c/${chat.id}`}
+        href={`/p/${chat.project_id}/c/${chat.id}`}
         className="block p-3"
         onClick={handleLinkClick}
         prefetch

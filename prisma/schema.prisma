@@ -53,6 +53,7 @@ model User {
   projects   Project[]
   messages   Message[]
   attachments ChatAttachment[]
+  memories   Memory[]
   projectMemories ProjectMemory[]
 
   @@map("user")
@@ -189,6 +190,24 @@ model ChatAttachment {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chat_attachments")
+}
+
+// General memories (not tied to any specific project)
+model Memory {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  summary   String?
+  tags      String?  // JSON array of tags
+  importance Int     @default(5) // 1-10 scale
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("memories")
 }
 
 model ProjectMemory {

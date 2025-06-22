@@ -74,6 +74,16 @@ export async function storeAssistantMessage({
         parts = JSON.stringify(message.content)
       }
 
+      // Include tool invocations if present
+      const messageAny = message as any
+      if (messageAny.toolInvocations && messageAny.toolInvocations.length > 0) {
+        const messageData = {
+          content: content || "",
+          toolInvocations: messageAny.toolInvocations,
+        }
+        parts = JSON.stringify(messageData)
+      }
+
       await prisma.message.create({
         data: {
           chatId,

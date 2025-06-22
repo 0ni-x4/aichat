@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { cn, isDev } from "@/lib/utils"
 import {
+  BrainIcon,
   CubeIcon,
   GearSixIcon,
   KeyIcon,
@@ -24,13 +25,14 @@ import { AccountManagement } from "./general/account-management"
 import { ModelPreferences } from "./general/model-preferences"
 import { UserProfile } from "./general/user-profile"
 import { ModelVisibilitySettings } from "./models/model-visibility-settings"
+import { MemoriesManagement } from "./memories/memories-management"
 
 type SettingsContentProps = {
   onClose: () => void
   isDrawer?: boolean
 }
 
-type TabType = "general" | "appearance" | "models" | "connections"
+type TabType = "general" | "appearance" | "memories" | "models" | "connections"
 
 export function SettingsContent({
   onClose,
@@ -82,6 +84,13 @@ export function SettingsContent({
                   <span>Appearance</span>
                 </TabsTrigger>
                 <TabsTrigger
+                  value="memories"
+                  className="flex shrink-0 items-center gap-2"
+                >
+                  <BrainIcon className="size-4" />
+                  <span>Memories</span>
+                </TabsTrigger>
+                <TabsTrigger
                   value="apikeys"
                   className="flex shrink-0 items-center gap-2"
                 >
@@ -122,6 +131,10 @@ export function SettingsContent({
               <InteractionPreferences />
             </TabsContent>
 
+            <TabsContent value="memories" className="px-6">
+              <MemoriesManagement />
+            </TabsContent>
+
             <TabsContent value="apikeys" className="px-6">
               <ByokSection />
             </TabsContent>
@@ -158,6 +171,16 @@ export function SettingsContent({
                   <div className="flex items-center gap-2">
                     <PaintBrushIcon className="size-4" />
                     <span>Appearance</span>
+                  </div>
+                </TabsTrigger>
+
+                <TabsTrigger
+                  value="memories"
+                  className="w-full justify-start rounded-md px-3 py-2 text-left"
+                >
+                  <div className="flex items-center gap-2">
+                    <BrainIcon className="size-4" />
+                    <span>Memories</span>
                   </div>
                 </TabsTrigger>
 
@@ -207,6 +230,10 @@ export function SettingsContent({
                 <ThemeSelection />
                 <LayoutSettings />
                 <InteractionPreferences />
+              </TabsContent>
+
+              <TabsContent value="memories" className="mt-0 space-y-6">
+                <MemoriesManagement />
               </TabsContent>
 
               <TabsContent value="apikeys" className="mt-0 space-y-6">

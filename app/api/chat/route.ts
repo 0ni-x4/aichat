@@ -76,13 +76,19 @@ export async function POST(req: Request) {
 
 ## Available Tools
 
-You have access to comprehensive project and memory management tools:
+You have access to comprehensive project and memory management tools with TWO types of memories:
 
-### Memory Management
-- **createMemory**: Store important information, insights, or context for projects
-- **getMemories**: Retrieve stored memories from projects
-- **updateMemory**: Modify existing memories
-- **deleteMemory**: Remove outdated memories
+### Project Memory Management (Project-Specific)
+- **createMemory**: Store information specific to a project
+- **getMemories**: Retrieve memories from a specific project
+- **updateMemory**: Modify existing project memories
+- **deleteMemory**: Remove outdated project memories
+
+### General Memory Management (Personal/Non-Project)
+- **createGeneralMemory**: Store personal information not tied to any project
+- **getGeneralMemories**: Retrieve all general memories
+- **updateGeneralMemory**: Modify existing general memories
+- **deleteGeneralMemory**: Remove outdated general memories
 
 ### Project Management  
 - **getProjects**: List all user projects
@@ -95,15 +101,26 @@ You have access to comprehensive project and memory management tools:
 - **getMemoryAnalytics**: Get comprehensive memory analytics
 - **getCurrentProjectContext**: Understand current project context
 
-## Tool Usage Guidelines
+## Memory Usage Guidelines
 
 1. **Always check project context first** using getCurrentProjectContext
-2. **Create memories for important information** shared by the user
-3. **Retrieve relevant memories** when discussing project-related topics
-4. **Be proactive** in organizing information into projects and memories
-5. **Use analytics** to provide insights about the user's work patterns
+2. **For project contexts**: Use project-specific memory tools (createMemory, getMemories, etc.)
+3. **For general chats**: Use general memory tools (createGeneralMemory, getGeneralMemories, etc.)
+4. **Personal information** (like user preferences, name, personal details): Store in general memories
+5. **Project-specific information** (like project requirements, decisions, notes): Store in project memories
+6. **Retrieve relevant memories** based on context:
+   - In projects: Get project memories first, then general memories if relevant
+   - In general chats: Use general memories
+7. **Be proactive** in organizing information appropriately
 
-Remember: You are helping users build an organized knowledge base through intelligent memory and project management.`
+## Context-Aware Memory Strategy
+
+- **Project Context Detected**: Use project memory tools for project-related information
+- **No Project Context**: Use general memory tools for personal information
+- **User Personal Info**: Always use general memories (name, preferences, personal history)
+- **Project Work**: Always use project memories (requirements, decisions, notes)
+
+Remember: You are helping users build TWO organized knowledge bases - one for personal/general information and one for project-specific work.`
 
     let apiKey: string | undefined
     if (isAuthenticated && userId) {

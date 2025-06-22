@@ -49,6 +49,14 @@ export function Conversation({
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
 
+            const messageAny = message as any
+            const messageParts = messageAny.toolInvocations 
+              ? messageAny.toolInvocations.map((invocation: any) => ({
+                  type: "tool-invocation",
+                  toolInvocation: invocation
+                }))
+              : (message.parts || [])
+
             return (
               <Message
                 key={message.id}
@@ -60,7 +68,7 @@ export function Conversation({
                 onEdit={onEdit}
                 onReload={onReload}
                 hasScrollAnchor={hasScrollAnchor}
-                parts={message.parts}
+                parts={messageParts}
                 status={status}
               >
                 {message.content}

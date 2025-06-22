@@ -1,22 +1,23 @@
 import { auth } from "@/lib/auth/config"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { NextRequest, NextResponse } from "next/server"
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
+    const { chatId } = await params
+    
     // Use Better Auth to get the current session
     const session = await auth.api.getSession({
       headers: await headers(),
     })
 
     if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const { chatId } = await params
 
     // Verify the user owns this chat
     const chat = await prisma.chat.findUnique({
@@ -25,11 +26,11 @@ export async function DELETE(
     })
 
     if (!chat) {
-      return Response.json({ error: "Chat not found" }, { status: 404 })
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 })
     }
 
     if (chat.userId !== session.user.id) {
-      return Response.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     // Delete the chat (messages will be deleted via cascade)
@@ -37,32 +38,33 @@ export async function DELETE(
       where: { id: chatId },
     })
 
-    return Response.json({ success: true })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error deleting chat:", error)
-    return Response.json({ error: "Failed to delete chat" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to delete chat" }, { status: 500 })
   }
 }
 
 export async function PATCH(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   try {
+    const { chatId } = await params
+    
     // Use Better Auth to get the current session
     const session = await auth.api.getSession({
       headers: await headers(),
     })
 
     if (!session?.user?.id) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { chatId } = await params
     const { title } = await request.json()
 
     if (!title) {
-      return Response.json({ error: "Title is required" }, { status: 400 })
+      return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
     // Verify the user owns this chat
@@ -72,11 +74,11 @@ export async function PATCH(
     })
 
     if (!chat) {
-      return Response.json({ error: "Chat not found" }, { status: 404 })
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 })
     }
 
     if (chat.userId !== session.user.id) {
-      return Response.json({ error: "Forbidden" }, { status: 403 })
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     // Update the chat title
@@ -88,9 +90,9 @@ export async function PATCH(
       },
     })
 
-    return Response.json({ success: true })
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error updating chat:", error)
-    return Response.json({ error: "Failed to update chat" }, { status: 500 })
+    return NextResponse.json({ error: "Failed to update chat" }, { status: 500 })
   }
 } 

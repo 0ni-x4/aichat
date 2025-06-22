@@ -30,6 +30,13 @@ import {
 } from './memory-tools'
 
 import {
+  createGeneralMemoryTool,
+  getGeneralMemoriesTool,
+  updateGeneralMemoryTool,
+  deleteGeneralMemoryTool,
+} from './general-memory-tools'
+
+import {
   getProjectsTool,
   getProjectTool,
   createProjectTool,
@@ -47,11 +54,17 @@ import {
  * Provides comprehensive project and memory management capabilities
  */
 export const coreframeTools = {
-  // Memory Management
+  // Project Memory Management
   createMemory: createMemoryTool,
   getMemories: getMemoriesTool,
   updateMemory: updateMemoryTool,
   deleteMemory: deleteMemoryTool,
+  
+  // General Memory Management
+  createGeneralMemory: createGeneralMemoryTool,
+  getGeneralMemories: getGeneralMemoriesTool,
+  updateGeneralMemory: updateGeneralMemoryTool,
+  deleteGeneralMemory: deleteGeneralMemoryTool,
   
   // Project Management
   getProjects: getProjectsTool,
