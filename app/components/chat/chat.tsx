@@ -31,9 +31,10 @@ const DialogAuth = dynamic(
 
 export interface ChatProps {
   chatId?: string
+  projectId?: string
 }
 
-export function Chat({ chatId: chatIdFromProps }: ChatProps) {
+export function Chat({ chatId: chatIdFromProps, projectId }: ChatProps) {
   const { chatId: chatIdFromContext } = useChatSession()
   const chatId = chatIdFromProps ?? chatIdFromContext
   const router = useRouter()
@@ -112,7 +113,6 @@ export function Chat({ chatId: chatIdFromProps }: ChatProps) {
     input,
     status,
     stop,
-    hasSentFirstMessageRef,
     isSubmitting,
     enableSearch,
     setEnableSearch,
@@ -123,19 +123,12 @@ export function Chat({ chatId: chatIdFromProps }: ChatProps) {
   } = useChatCore({
     initialMessages,
     draftValue,
-    cacheAndAddMessage,
     chatId,
     user,
-    files,
-    createOptimisticAttachments,
-    setFiles,
-    checkLimitsAndNotify,
-    cleanupOptimisticAttachments,
-    ensureChatExists,
-    handleFileUploads,
     selectedModel,
     clearDraft,
     bumpChat,
+    projectId,
   })
 
   // Memoize the conversation props to prevent unnecessary rerenders
@@ -203,10 +196,9 @@ export function Chat({ chatId: chatIdFromProps }: ChatProps) {
       isSubmitting,
       status,
       messagesLength: messages.length,
-      hasSentFirstMessage: hasSentFirstMessageRef.current,
-      chatsLength: chats.length
+      chatsLength: chats.length,
     })
-    
+
     if (
       chatId &&
       !isChatsLoading &&
@@ -214,7 +206,6 @@ export function Chat({ chatId: chatIdFromProps }: ChatProps) {
       !isSubmitting &&
       status === "ready" &&
       messages.length === 0 &&
-      !hasSentFirstMessageRef.current && // Don't redirect if we've already sent a message in this session
       chats.length > 0 // Only redirect if we have loaded chats (to avoid false redirects during initial load)
     ) {
       console.log("🚨 REDIRECTING to / because chat not found")
@@ -227,9 +218,8 @@ export function Chat({ chatId: chatIdFromProps }: ChatProps) {
     isSubmitting,
     status,
     messages.length,
-    hasSentFirstMessageRef.current,
     chats.length,
-    router
+    router,
   ])
 
   const showOnboarding = !chatId && messages.length === 0

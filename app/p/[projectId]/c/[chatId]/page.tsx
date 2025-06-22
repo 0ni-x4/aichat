@@ -10,7 +10,7 @@ export default async function ProjectChatPage({ params }: Props) {
 
   return (
     <LayoutApp>
-      <Chat chatId={chatId} />
+      <Chat chatId={chatId} projectId={projectId} />
     </LayoutApp>
   )
 } 

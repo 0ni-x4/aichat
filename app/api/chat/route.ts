@@ -3,14 +3,19 @@ import { getAllModels } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, NoSuchToolError, InvalidToolArgumentsError, ToolExecutionError } from "ai"
 import {
-  logUserMessage,
-  storeAssistantMessage,
-  validateAndTrackUsage,
-} from "./api"
+  Message as MessageAISDK,
+  streamText,
+  NoSuchToolError,
+  InvalidToolArgumentsError,
+  ToolExecutionError,
+  CoreMessage,
+  appendResponseMessages,
+} from "ai"
 import { createErrorResponse, extractErrorMessage } from "./utils"
 import { coreframeTools } from "@/tools"
+import { prisma } from "@/lib/prisma"
+import { checkUsageByModel, incrementUsageByModel } from "@/lib/usage"
 
 interface ChatRequest {
   messages: MessageAISDK[]
@@ -20,6 +25,7 @@ interface ChatRequest {
   isAuthenticated: boolean
   systemPrompt?: string
   enableSearch?: boolean
+  projectId?: string
 }
 
 export const maxDuration = 60
@@ -34,6 +40,7 @@ export async function POST(req: Request) {
       isAuthenticated,
       systemPrompt,
       enableSearch,
+      projectId,
     } = (await req.json()) as ChatRequest
 
     if (!messages || !chatId || !userId) {
@@ -43,25 +50,28 @@ export async function POST(req: Request) {
       )
     }
 
-    // No Supabase, so this returns null - we don't need it anymore
-    await validateAndTrackUsage({
-      userId,
-      model,
-      isAuthenticated,
-    })
+    // 1. Check usage limits & validate user
+    await checkUsageByModel(userId, model, isAuthenticated)
 
+    // 2. Log user message to DB and increment usage
     const userMessage = messages[messages.length - 1]
-
-    // Mock log user message (no database)
     if (userMessage?.role === "user") {
-      await logUserMessage({
-        userId,
-        chatId,
-        content: userMessage.content,
-        attachments: userMessage.experimental_attachments as Attachment[],
-        model,
-        isAuthenticated,
+      await prisma.message.create({
+        data: {
+          chatId,
+          userId,
+          role: "user",
+          content:
+            typeof userMessage.content === "string"
+              ? userMessage.content
+              : JSON.stringify(userMessage.content),
+          experimentalAttachments: userMessage.experimental_attachments
+            ? JSON.stringify(userMessage.experimental_attachments)
+            : null,
+        },
       })
+      await incrementUsageByModel(userId, model, isAuthenticated)
+      console.log(`User message saved for chat ${chatId}`)
     }
 
     const allModels = await getAllModels()
@@ -69,6 +79,39 @@ export async function POST(req: Request) {
 
     if (!modelConfig || !modelConfig.apiSdk) {
       throw new Error(`Model ${model} not found`)
+    }
+
+    // Create a dynamic version of the context tool
+    const contextualTools = {
+      ...coreframeTools,
+      getCurrentProjectContext: {
+        ...coreframeTools.getCurrentProjectContext,
+        execute: async () => {
+          if (projectId) {
+            const project = await prisma.project.findUnique({
+              where: { id: projectId },
+            })
+            return {
+              success: true,
+              context: {
+                hasProject: true,
+                project,
+                chatId,
+              },
+              message: `Current project context: ${project?.name}`,
+            }
+          }
+          return {
+            success: true,
+            context: {
+              hasProject: false,
+              project: null,
+              chatId,
+            },
+            message: "No project context found - this is a general chat",
+          }
+        },
+      },
     }
 
     // Enhanced system prompt for AI SDK 5 tools
@@ -135,20 +178,36 @@ Remember: You are helping users build TWO organized knowledge bases - one for pe
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
       system: toolEnhancedPrompt,
       messages: messages,
-      tools: coreframeTools,
+      tools: contextualTools,
       maxSteps: 10,
       onError: (err: unknown) => {
         console.error("Streaming error occurred:", err)
-        // Don't set streamError anymore - let the AI SDK handle it through the stream
       },
 
       onFinish: async ({ response }) => {
-        // Mock store assistant message (no database)
-        await storeAssistantMessage({
-          chatId,
-          messages:
-            response.messages as unknown as import("@/app/types/api.types").Message[],
+        // 3. Use appendResponseMessages to get properly formatted messages
+        const updatedMessages = appendResponseMessages({
+          messages,
+          responseMessages: response.messages,
         })
+        
+        // Save only the new assistant messages (the response messages)
+        const newAssistantMessages = updatedMessages.slice(messages.length)
+        
+        for (const message of newAssistantMessages) {
+          if (message.role === "assistant") {
+            await prisma.message.create({
+              data: {
+                chatId,
+                role: "assistant",
+                content: typeof message.content === "string" ? message.content : "",
+                // Store the entire message as JSON to preserve toolInvocations
+                parts: JSON.stringify(message),
+              },
+            })
+          }
+        }
+        console.log(`Assistant messages saved for chat ${chatId}`)
       },
     })
 
@@ -157,16 +216,16 @@ Remember: You are helping users build TWO organized knowledge bases - one for pe
       sendSources: true,
       getErrorMessage: (error: unknown) => {
         console.error("Error forwarded to client:", error)
-        
+
         // Handle AI SDK 5 tool-specific errors
         if (NoSuchToolError.isInstance(error)) {
-          return 'The AI tried to use a tool that is not available. Please try again.'
+          return "The AI tried to use a tool that is not available. Please try again."
         } else if (InvalidToolArgumentsError.isInstance(error)) {
-          return 'The AI called a tool with invalid arguments. Please try rephrasing your request.'
+          return "The AI called a tool with invalid arguments. Please try rephrasing your request."
         } else if (ToolExecutionError.isInstance(error)) {
-          return 'A tool encountered an error during execution. Please try again.'
+          return "A tool encountered an error during execution. Please try again."
         }
-        
+
         return extractErrorMessage(error)
       },
     })

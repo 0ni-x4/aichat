@@ -26,6 +26,109 @@ type Memory = {
 }
 
 export function MemoriesManagement() {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null)
+  const queryClient = useQueryClient()
+
+  // Fetch general memories
+  const { data: memories = [], isLoading } = useQuery({
+    queryKey: ['general-memories'],
+    queryFn: async () => {
+      const response = await fetch('/api/memories/general')
+      if (!response.ok) {
+        throw new Error('Failed to fetch general memories')
+      }
+      return response.json()
+    }
+  })
+
+  // Create memory mutation
+  const createMemoryMutation = useMutation({
+    mutationFn: async (data: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const response = await fetch('/api/memories/general', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        throw new Error('Failed to create memory')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['general-memories'] })
+      setIsCreateDialogOpen(false)
+      toast({ title: "Memory created successfully", status: "success" })
+    },
+    onError: () => {
+      toast({ title: "Failed to create memory", status: "error" })
+    }
+  })
+
+  // Update memory mutation
+  const updateMemoryMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Omit<Memory, 'id' | 'createdAt' | 'updatedAt'> }) => {
+      const response = await fetch(`/api/memories/general/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      if (!response.ok) {
+        throw new Error('Failed to update memory')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['general-memories'] })
+      setEditingMemory(null)
+      toast({ title: "Memory updated successfully", status: "success" })
+    },
+    onError: () => {
+      toast({ title: "Failed to update memory", status: "error" })
+    }
+  })
+
+  // Delete memory mutation
+  const deleteMemoryMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/memories/general/${id}`, {
+        method: 'DELETE'
+      })
+      if (!response.ok) {
+        throw new Error('Failed to delete memory')
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['general-memories'] })
+      toast({ title: "Memory deleted successfully", status: "success" })
+    },
+    onError: () => {
+      toast({ title: "Failed to delete memory", status: "error" })
+    }
+  })
+
+  // Filter memories based on search term
+  const filteredMemories = useMemo(() => {
+    if (!searchTerm) return memories
+    const term = searchTerm.toLowerCase()
+    return memories.filter((memory: Memory) =>
+      memory.title.toLowerCase().includes(term) ||
+      memory.content.toLowerCase().includes(term) ||
+      memory.tags?.some((tag: string) => tag.toLowerCase().includes(term))
+    )
+  }, [memories, searchTerm])
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString()
+  }
+
+  const getImportanceColor = (importance: number) => {
+    if (importance >= 8) return "text-red-500"
+    if (importance >= 6) return "text-yellow-500"
+    return "text-green-500"
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -37,10 +140,76 @@ export function MemoriesManagement() {
           Manage your personal memories that aren't tied to any specific project.
         </p>
       </CardHeader>
-      <CardContent>
-        <div className="text-center py-8 text-muted-foreground">
-          General memories management coming soon...
+      <CardContent className="space-y-4">
+        {/* Search and Create */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search memories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Memory
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Memory</DialogTitle>
+              </DialogHeader>
+              <MemoryForm
+                onSubmit={(data) => createMemoryMutation.mutate(data)}
+                isLoading={createMemoryMutation.isPending}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
+
+        {/* Memories List */}
+        {isLoading ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Loading memories...
+          </div>
+        ) : filteredMemories.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {searchTerm ? 'No memories match your search.' : 'No memories yet. Create your first memory!'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredMemories.map((memory: Memory) => (
+              <MemoryCard
+                key={memory.id}
+                memory={memory}
+                onEdit={setEditingMemory}
+                onDelete={(id) => deleteMemoryMutation.mutate(id)}
+                formatDate={formatDate}
+                getImportanceColor={getImportanceColor}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Edit Dialog */}
+        <Dialog open={!!editingMemory} onOpenChange={() => setEditingMemory(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Memory</DialogTitle>
+            </DialogHeader>
+            {editingMemory && (
+              <MemoryForm
+                initialData={editingMemory}
+                onSubmit={(data) => updateMemoryMutation.mutate({ id: editingMemory.id, data })}
+                isLoading={updateMemoryMutation.isPending}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   )

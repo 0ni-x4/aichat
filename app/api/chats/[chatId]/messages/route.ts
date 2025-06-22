@@ -54,40 +54,54 @@ export async function GET(
 
     // Convert to AI SDK format
     const messages: MessageAISDK[] = dbMessages.map((message: any) => {
-      const aiMessage: any = {
-        id: String(message.id),
-        role: message.role as any,
-        content: message.content || "",
-        createdAt: message.createdAt,
-        experimental_attachments: message.experimentalAttachments 
-          ? JSON.parse(message.experimentalAttachments) 
-          : undefined,
+      // For user messages, use the simple format
+      if (message.role === "user") {
+        const aiMessage: MessageAISDK = {
+          id: String(message.id),
+          role: message.role,
+          content: message.content || "",
+          createdAt: message.createdAt,
+        }
+
+        if (message.experimentalAttachments) {
+          try {
+            aiMessage.experimental_attachments = JSON.parse(
+              message.experimentalAttachments
+            )
+          } catch (e) {
+            console.error("Failed to parse experimental_attachments", e)
+          }
+        }
+
+        return aiMessage
       }
 
-      // Parse parts and extract tool invocations if present
-      if (message.parts) {
+      // For assistant messages, check if we have the full message stored in parts
+      if (message.role === "assistant" && message.parts) {
         try {
-          const parsedParts = JSON.parse(message.parts)
+          // Parse the complete message object from parts
+          const storedMessage = JSON.parse(message.parts)
           
-          // Check if parts contains tool invocations
-          if (parsedParts.toolInvocations) {
-            aiMessage.toolInvocations = parsedParts.toolInvocations
-            // If there's also content in the parsed parts, use that
-            if (parsedParts.content) {
-              aiMessage.content = parsedParts.content
-            }
-          } else {
-            // If it's an array (like message content parts), assign to content
-            if (Array.isArray(parsedParts)) {
-              aiMessage.content = parsedParts
+          // If it's a complete message object, use it directly
+          if (storedMessage.role && storedMessage.content !== undefined) {
+            return {
+              ...storedMessage,
+              id: String(message.id),
+              createdAt: message.createdAt,
             }
           }
         } catch (error) {
-          console.error("Error parsing message parts:", error)
+          console.error("Error parsing stored message:", error)
         }
       }
 
-      return aiMessage
+      // Fallback for assistant messages without proper parts storage
+      return {
+        id: String(message.id),
+        role: message.role,
+        content: message.content || "",
+        createdAt: message.createdAt,
+      }
     })
 
     return NextResponse.json(messages)
