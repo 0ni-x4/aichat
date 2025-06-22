@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { AuthProvider } from "@/lib/auth/provider"
 import { ChatsProvider } from "@/lib/chat-store/chats/provider"
+import { MessagesProvider } from "@/lib/chat-store/messages/provider"
 import { ChatSessionProvider } from "@/lib/chat-store/session/provider"
 import { ModelProvider } from "@/lib/model-store/provider"
 import { TanstackQueryProvider } from "@/lib/tanstack-query/tanstack-query-provider"
@@ -60,7 +61,8 @@ export default async function RootLayout({
               <ModelProvider>
                 <ChatsProvider userId={userProfile?.id}>
                   <ChatSessionProvider>
-                    <UserPreferencesProvider userId={userProfile?.id}>
+                    <MessagesProvider>
+                      <UserPreferencesProvider userId={userProfile?.id}>
                       <TooltipProvider
                         delayDuration={200}
                         skipDelayDuration={500}
@@ -79,7 +81,8 @@ export default async function RootLayout({
                           </SidebarProvider>
                         </ThemeProvider>
                       </TooltipProvider>
-                    </UserPreferencesProvider>
+                      </UserPreferencesProvider>
+                    </MessagesProvider>
                   </ChatSessionProvider>
                 </ChatsProvider>
               </ModelProvider>

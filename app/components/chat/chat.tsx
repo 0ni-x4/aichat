@@ -13,8 +13,8 @@ import { useUser } from "@/lib/user-store/provider"
 import { cn } from "@/lib/utils"
 import { AnimatePresence, motion } from "motion/react"
 import dynamic from "next/dynamic"
-import { redirect } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useMemo, useState, useEffect } from "react"
 import { useChatCore } from "./use-chat-core"
 import { useChatOperations } from "./use-chat-operations"
 import { useFileUpload } from "./use-file-upload"
@@ -29,9 +29,18 @@ const DialogAuth = dynamic(
   { ssr: false }
 )
 
-export function Chat() {
-  const { chatId } = useChatSession()
+export interface ChatProps {
+  chatId?: string
+}
+
+export function Chat({ chatId: chatIdFromProps }: ChatProps) {
+  const { chatId: chatIdFromContext } = useChatSession()
+  const chatId = chatIdFromProps ?? chatIdFromContext
+  const router = useRouter()
+  console.log("🔍 Chat component - chatId:", chatId)
+
   const {
+    chats,
     createNewChat,
     getChatById,
     updateChatModel,
@@ -44,7 +53,13 @@ export function Chat() {
     [chatId, getChatById]
   )
 
+  console.log("🔍 Chat component - currentChat:", currentChat)
+  console.log("🔍 Chat component - chats.length:", chats.length)
+  console.log("🔍 Chat component - isChatsLoading:", isChatsLoading)
+
   const { messages: initialMessages, cacheAndAddMessage } = useMessages()
+  console.log("🔍 Chat component - messages.length:", initialMessages.length)
+
   const { user } = useUser()
   const { preferences } = useUserPreferences()
   const { draftValue, clearDraft } = useChatDraft(chatId)
@@ -180,17 +195,42 @@ export function Chat() {
 
   // Handle redirect for invalid chatId - only redirect if we're certain the chat doesn't exist
   // and we're not in a transient state during chat creation
-  if (
-    chatId &&
-    !isChatsLoading &&
-    !currentChat &&
-    !isSubmitting &&
-    status === "ready" &&
-    messages.length === 0 &&
-    !hasSentFirstMessageRef.current // Don't redirect if we've already sent a message in this session
-  ) {
-    return redirect("/")
-  }
+  useEffect(() => {
+    console.log("🔍 Redirect conditions:", {
+      chatId,
+      isChatsLoading,
+      currentChat: !!currentChat,
+      isSubmitting,
+      status,
+      messagesLength: messages.length,
+      hasSentFirstMessage: hasSentFirstMessageRef.current,
+      chatsLength: chats.length
+    })
+    
+    if (
+      chatId &&
+      !isChatsLoading &&
+      !currentChat &&
+      !isSubmitting &&
+      status === "ready" &&
+      messages.length === 0 &&
+      !hasSentFirstMessageRef.current && // Don't redirect if we've already sent a message in this session
+      chats.length > 0 // Only redirect if we have loaded chats (to avoid false redirects during initial load)
+    ) {
+      console.log("🚨 REDIRECTING to / because chat not found")
+      router.push("/")
+    }
+  }, [
+    chatId,
+    isChatsLoading,
+    currentChat,
+    isSubmitting,
+    status,
+    messages.length,
+    hasSentFirstMessageRef.current,
+    chats.length,
+    router
+  ])
 
   const showOnboarding = !chatId && messages.length === 0
 

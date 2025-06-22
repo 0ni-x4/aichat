@@ -1,6 +1,5 @@
 import { LayoutApp } from "@/app/components/layout/layout-app"
 import { ProjectView } from "@/app/p/[projectId]/project-view"
-import { MessagesProvider } from "@/lib/chat-store/messages/provider"
 import { auth } from "@/lib/auth/config"
 import { prisma } from "@/lib/prisma"
 import { headers } from "next/headers"
@@ -38,10 +37,8 @@ export default async function Page({ params }: Props) {
   }
 
   return (
-    <MessagesProvider>
-      <LayoutApp>
-        <ProjectView projectId={projectId} key={projectId} />
-      </LayoutApp>
-    </MessagesProvider>
+    <LayoutApp>
+      <ProjectView projectId={projectId} key={projectId} />
+    </LayoutApp>
   )
 }

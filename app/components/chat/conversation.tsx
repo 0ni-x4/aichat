@@ -49,13 +49,20 @@ export function Conversation({
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
 
-            const messageAny = message as any
-            const messageParts = messageAny.toolInvocations 
-              ? messageAny.toolInvocations.map((invocation: any) => ({
-                  type: "tool-invocation",
-                  toolInvocation: invocation
-                }))
-              : (message.parts || [])
+            // Ensure children's content is always a string for markdown parser
+            const displayContent = (() => {
+              if (typeof message.content === "string") return message.content
+              if (Array.isArray(message.content)) {
+                const partsArray = message.content as any[]
+                return (
+                  partsArray
+                    .filter((part) => part && part.type === "text" && part.text)
+                    .map((part) => part.text as string)
+                    .join("\n\n") || ""
+                )
+              }
+              return ""
+            })()
 
             return (
               <Message
@@ -68,10 +75,10 @@ export function Conversation({
                 onEdit={onEdit}
                 onReload={onReload}
                 hasScrollAnchor={hasScrollAnchor}
-                parts={messageParts}
+                parts={message.parts}
                 status={status}
               >
-                {message.content}
+                {displayContent}
               </Message>
             )
           })}

@@ -166,7 +166,10 @@ export function ChatsProvider({
   }
 
   const getChatById = (id: string) => {
+    console.log("🔍 getChatById called with id:", id)
+    console.log("🔍 Available chats:", chats.map(c => ({ id: c.id, title: c.title, project_id: c.project_id })))
     const chat = chats.find((c) => c.id === id)
+    console.log("🔍 Found chat:", chat ? { id: chat.id, title: chat.title, project_id: chat.project_id } : null)
     return chat
   }
 

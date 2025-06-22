@@ -37,23 +37,30 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const { chatId } = useChatSession()
 
   useEffect(() => {
+    console.log("🔍 MessagesProvider - chatId changed:", chatId)
+    
     if (chatId === null) {
+      console.log("🔍 MessagesProvider - No chatId, clearing messages")
       setMessages([])
       return
     }
 
     const load = async () => {
+      console.log("🔍 MessagesProvider - Loading messages for chatId:", chatId)
+      
       // First load cached messages for instant feedback
       const cached = await getCachedMessages(chatId)
+      console.log("🔍 MessagesProvider - Cached messages:", cached.length)
       setMessages(cached)
 
       try {
         // Then fetch fresh messages from server
         const fresh = await getMessagesFromDb(chatId)
+        console.log("🔍 MessagesProvider - Fresh messages from server:", fresh.length)
         setMessages(fresh)
         cacheMessages(chatId, fresh)
       } catch (error) {
-        console.error("Failed to fetch messages:", error)
+        console.error("🔍 MessagesProvider - Failed to fetch messages:", error)
         // If server fetch fails, keep the cached messages
       }
     }

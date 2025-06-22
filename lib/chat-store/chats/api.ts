@@ -16,14 +16,14 @@ export async function getChatsFromDb(userId: string) {
     const chats = await response.json()
     
     // Cache the results
-    await writeToIndexedDB("chats", { id: userId, chats })
+    await writeToIndexedDB("chats", { id: "all", chats })
     
     return chats
   } catch (error) {
     console.error("Failed to get chats from server:", error)
     // Fallback to cached data
     try {
-      const cachedChats = await readFromIndexedDB("chats", userId) as { chats?: any[] } | null
+      const cachedChats = await readFromIndexedDB("chats", "all") as { chats?: any[] } | null
       return cachedChats?.chats || []
     } catch (cacheError) {
       console.error("Failed to get cached chats:", error)
@@ -103,10 +103,10 @@ export async function createChatInDb(
 
     // Update cache
     try {
-      const cachedChats = await readFromIndexedDB("chats", userId) as { chats?: any[] } | null
+      const cachedChats = await readFromIndexedDB("chats", "all") as { chats?: any[] } | null
       const existingChats = cachedChats?.chats || []
       const updatedChats = [chatFormatted, ...existingChats]
-      await writeToIndexedDB("chats", { id: userId, chats: updatedChats })
+      await writeToIndexedDB("chats", { id: "all", chats: updatedChats })
     } catch (error) {
       console.error("Failed to cache new chat:", error)
     }
@@ -120,7 +120,7 @@ export async function createChatInDb(
 
 export async function fetchAndCacheChats(userId: string): Promise<Chats[]> {
   const chats = await getChatsFromDb(userId)
-  await writeToIndexedDB("chats", { id: userId, chats })
+  await writeToIndexedDB("chats", { id: "all", chats })
   return chats
 }
 
