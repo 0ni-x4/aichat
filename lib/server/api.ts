@@ -1,51 +1,36 @@
-import { createClient } from "@/lib/supabase/server"
-import { createGuestServerClient } from "@/lib/supabase/server-guest"
-import { isSupabaseEnabled } from "../supabase/config"
+import { auth } from "@/lib/auth/config"
+import { headers } from "next/headers"
 
 /**
- * Validates the user's identity
+ * Validates the user's identity using Better Auth only
  * @param userId - The ID of the user.
  * @param isAuthenticated - Whether the user is authenticated.
- * @returns The Supabase client.
+ * @returns null since we're not using Supabase anymore
  */
 export async function validateUserIdentity(
   userId: string,
   isAuthenticated: boolean
 ) {
-  if (!isSupabaseEnabled) {
-    return null
-  }
-
-  const supabase = isAuthenticated
-    ? await createClient()
-    : await createGuestServerClient()
-
-  if (!supabase) {
-    throw new Error("Failed to initialize Supabase client")
-  }
-
   if (isAuthenticated) {
-    const { data: authData, error: authError } = await supabase.auth.getUser()
+    try {
+      // Use Better Auth to get the current session
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      })
 
-    if (authError || !authData?.user?.id) {
+      if (!session?.user?.id) {
+        throw new Error("Unable to get authenticated user")
+      }
+
+      if (session.user.id !== userId) {
+        throw new Error("User ID does not match authenticated user")
+      }
+    } catch (error) {
       throw new Error("Unable to get authenticated user")
     }
-
-    if (authData.user.id !== userId) {
-      throw new Error("User ID does not match authenticated user")
-    }
-  } else {
-    const { data: userRecord, error: userError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", userId)
-      .eq("anonymous", true)
-      .maybeSingle()
-
-    if (userError || !userRecord) {
-      throw new Error("Invalid or missing guest user")
-    }
   }
+  // For guest users, we no longer validate against any database
+  // We removed guest functionality, so this shouldn't happen
 
-  return supabase
+  return null // No Supabase client needed
 }

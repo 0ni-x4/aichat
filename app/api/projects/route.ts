@@ -1,40 +1,54 @@
-import { createClient } from "@/lib/supabase/server"
-import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@/lib/auth/config"
+import { headers } from "next/headers"
+import { prisma } from "@/lib/prisma"
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
 
-    if (!supabase) {
-      return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
-      )
-    }
-
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData?.user?.id) {
+    if (!session?.user?.id) {
       return new Response(JSON.stringify({ error: "Missing userId" }), {
         status: 400,
       })
     }
 
-    const userId = authData.user.id
+    const { name, description, summary, startDate, targetDate } = await request.json()
 
-    const { name } = await request.json()
+    if (!name) {
+      return new Response(JSON.stringify({ error: "Project name is required" }), {
+        status: 400,
+      })
+    }
 
-    const { data, error } = await supabase
-      .from("projects")
-      .insert({ name, user_id: userId })
-      .select()
-      .single()
+    // Create project in database
+    const project = await prisma.project.create({
+      data: {
+        name,
+        description: description || null,
+        summary: summary || null,
+        startDate: startDate ? new Date(startDate) : null,
+        targetDate: targetDate ? new Date(targetDate) : null,
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        summary: true,
+        startDate: true,
+        targetDate: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+      },
+    })
 
-    if (error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json(data)
+    return Response.json(project)
   } catch (err: unknown) {
-    console.error("Error in projects endpoint:", err)
+    console.error("Error creating project:", err)
 
     return new Response(
       JSON.stringify({
@@ -46,27 +60,44 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
-  const supabase = await createClient()
+  try {
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
 
-  if (!supabase) {
-    return new Response(
-      JSON.stringify({ error: "Supabase not available in this deployment." }),
-      { status: 200 }
-    )
+    if (!session?.user?.id) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Get projects for the authenticated user
+    const projects = await prisma.project.findMany({
+      where: {
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        summary: true,
+        startDate: true,
+        targetDate: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            chats: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    })
+
+    return Response.json(projects)
+  } catch (error) {
+    console.error("Error fetching projects:", error)
+    return Response.json({ error: "Failed to fetch projects" }, { status: 500 })
   }
-
-  const { data: authData } = await supabase.auth.getUser()
-
-  const userId = authData?.user?.id
-  if (!userId)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
 }

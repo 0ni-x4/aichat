@@ -1,21 +1,30 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto"
 
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
-if (!ENCRYPTION_KEY) {
-  throw new Error("ENCRYPTION_KEY is required")
-}
 const ALGORITHM = "aes-256-gcm"
 
-const key = Buffer.from(ENCRYPTION_KEY!, "base64")
-
-if (key.length !== 32) {
-  throw new Error("ENCRYPTION_KEY must be 32 bytes long")
+function getEncryptionKey(): Buffer {
+  const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
+  if (!ENCRYPTION_KEY) {
+    console.warn("ENCRYPTION_KEY not found, using default (not secure for production)")
+    // Create a default 32-byte key (base64 encoded)
+    return Buffer.from("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "base64")
+  }
+  
+  const key = Buffer.from(ENCRYPTION_KEY, "base64")
+  
+  if (key.length !== 32) {
+    console.error("ENCRYPTION_KEY must be 32 bytes long")
+    return Buffer.from("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=", "base64")
+  }
+  
+  return key
 }
 
 export function encryptKey(plaintext: string): {
   encrypted: string
   iv: string
 } {
+  const key = getEncryptionKey()
   const iv = randomBytes(16)
   const cipher = createCipheriv(ALGORITHM, key, iv)
 
@@ -32,6 +41,7 @@ export function encryptKey(plaintext: string): {
 }
 
 export function decryptKey(encryptedData: string, ivHex: string): string {
+  const key = getEncryptionKey()
   const [encrypted, authTagHex] = encryptedData.split(":")
   const iv = Buffer.from(ivHex, "hex")
   const authTag = Buffer.from(authTagHex, "hex")

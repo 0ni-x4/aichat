@@ -4,6 +4,7 @@ import "./globals.css"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { AuthProvider } from "@/lib/auth/provider"
 import { ChatsProvider } from "@/lib/chat-store/chats/provider"
 import { ChatSessionProvider } from "@/lib/chat-store/session/provider"
 import { ModelProvider } from "@/lib/model-store/provider"
@@ -14,6 +15,7 @@ import { getUserProfile } from "@/lib/user/api"
 import { ThemeProvider } from "next-themes"
 import Script from "next/script"
 import { LayoutClient } from "./layout-client"
+import { ConditionalAuthGuard } from "./components/conditional-auth-guard"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,9 +28,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Zola",
+  title: "Coreframe",
   description:
-    "Zola is the open-source interface for AI chat. Multi-model, BYOK-ready, and fully self-hostable. Use Claude, OpenAI, Gemini, local models, and more, all in one place.",
+    "Coreframe is the open-source interface for AI chat. Multi-model, BYOK-ready, and fully self-hostable. Use Claude, OpenAI, Gemini, local models, and more, all in one place.",
 }
 
 export default async function RootLayout({
@@ -53,32 +55,36 @@ export default async function RootLayout({
       >
         <TanstackQueryProvider>
           <LayoutClient />
-          <UserProvider initialUser={userProfile}>
-            <ModelProvider>
-              <ChatsProvider userId={userProfile?.id}>
-                <ChatSessionProvider>
-                  <UserPreferencesProvider userId={userProfile?.id}>
-                    <TooltipProvider
-                      delayDuration={200}
-                      skipDelayDuration={500}
-                    >
-                      <ThemeProvider
-                        attribute="class"
-                        defaultTheme="light"
-                        enableSystem
-                        disableTransitionOnChange
+          <AuthProvider>
+            <UserProvider initialUser={userProfile}>
+              <ModelProvider>
+                <ChatsProvider userId={userProfile?.id}>
+                  <ChatSessionProvider>
+                    <UserPreferencesProvider userId={userProfile?.id}>
+                      <TooltipProvider
+                        delayDuration={200}
+                        skipDelayDuration={500}
                       >
-                        <SidebarProvider defaultOpen>
-                          <Toaster position="top-center" />
-                          {children}
-                        </SidebarProvider>
-                      </ThemeProvider>
-                    </TooltipProvider>
-                  </UserPreferencesProvider>
-                </ChatSessionProvider>
-              </ChatsProvider>
-            </ModelProvider>
-          </UserProvider>
+                        <ThemeProvider
+                          attribute="class"
+                          defaultTheme="light"
+                          enableSystem
+                          disableTransitionOnChange
+                        >
+                          <SidebarProvider defaultOpen>
+                            <Toaster position="top-center" />
+                            <ConditionalAuthGuard>
+                              {children}
+                            </ConditionalAuthGuard>
+                          </SidebarProvider>
+                        </ThemeProvider>
+                      </TooltipProvider>
+                    </UserPreferencesProvider>
+                  </ChatSessionProvider>
+                </ChatsProvider>
+              </ModelProvider>
+            </UserProvider>
+          </AuthProvider>
         </TanstackQueryProvider>
       </body>
     </html>

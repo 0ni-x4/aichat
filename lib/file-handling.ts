@@ -170,3 +170,51 @@ export async function checkFileUploadLimit(userId: string) {
 
   return count
 }
+
+// Mock file handling - no file uploads since we removed Supabase
+
+export interface FileUploadResult {
+  url: string
+  fileName: string
+  fileType: string
+  fileSize: number
+}
+
+export async function handleFileUploads(
+  files: File[],
+  userId: string,
+  chatId: string
+): Promise<FileUploadResult[]> {
+  // Mock file upload - just return local object URLs
+  return files.map(file => ({
+    url: URL.createObjectURL(file),
+    fileName: file.name,
+    fileType: file.type,
+    fileSize: file.size,
+  }))
+}
+
+export async function getStorageUsage(): Promise<number> {
+  // Mock storage usage - return 0
+  return 0
+}
+
+export function isValidFileType(file: File): boolean {
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png', 
+    'image/gif',
+    'image/webp',
+    'text/plain',
+    'application/pdf',
+    'text/csv',
+    'application/json',
+  ]
+  
+  return allowedTypes.includes(file.type)
+}
+
+export function isValidFileSize(file: File): boolean {
+  const maxSize = 10 * 1024 * 1024 // 10MB
+  return file.size <= maxSize
+}

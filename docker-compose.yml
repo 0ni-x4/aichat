@@ -1,5 +1,5 @@
 services:
-  zola:
+  coreframe:
     build:
       context: .
       dockerfile: Dockerfile

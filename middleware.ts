@@ -1,39 +1,27 @@
-import { updateSession } from "@/utils/supabase/middleware"
-import { NextResponse, type NextRequest } from "next/server"
-import { validateCsrfToken } from "./lib/csrf"
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
-  const response = await updateSession(request)
-
-  // CSRF protection for state-changing requests
-  if (["POST", "PUT", "DELETE"].includes(request.method)) {
-    const csrfCookie = request.cookies.get("csrf_token")?.value
-    const headerToken = request.headers.get("x-csrf-token")
-
-    if (!csrfCookie || !headerToken || !validateCsrfToken(headerToken)) {
-      return new NextResponse("Invalid CSRF token", { status: 403 })
-    }
+export function middleware(request: NextRequest) {
+  // Skip middleware for desktop builds
+  if (process.env.DESKTOP_BUILD === "1") {
+    return NextResponse.next()
   }
 
-  // CSP for development and production
+  const response = NextResponse.next()
+
+  // Add basic CSP for security
   const isDev = process.env.NODE_ENV === "development"
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseDomain = supabaseUrl ? new URL(supabaseUrl).origin : ""
-
-  response.headers.set(
-    "Content-Security-Policy",
-    isDev
-      ? `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' wss: https://api.openai.com https://api.mistral.ai https://api.supabase.com ${supabaseDomain} https://api.github.com;`
-      : `default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://analytics.umami.is https://vercel.live; frame-src 'self' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' wss: https://api.openai.com https://api.mistral.ai https://api.supabase.com ${supabaseDomain} https://api-gateway.umami.dev https://api.github.com;`
-  )
+  
+  if (isDev) {
+    response.headers.set(
+      "Content-Security-Policy",
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; connect-src 'self' wss: https:;"
+    )
+  }
 
   return response
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
-  runtime: "nodejs",
-}
+  matcher: '/((?!_next/static|_next/image|favicon.ico).*)',
+} 

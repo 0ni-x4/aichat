@@ -1,39 +1,38 @@
-import {
-  AUTH_DAILY_MESSAGE_LIMIT,
-  DAILY_LIMIT_PRO_MODELS,
-  NON_AUTH_DAILY_MESSAGE_LIMIT,
-} from "@/lib/config"
-import { validateUserIdentity } from "@/lib/server/api"
+import { checkUsage, checkProUsage } from "@/lib/usage"
 
 export async function getMessageUsage(
   userId: string,
   isAuthenticated: boolean
 ) {
-  const supabase = await validateUserIdentity(userId, isAuthenticated)
-  if (!supabase) return null
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("daily_message_count, daily_pro_message_count")
-    .eq("id", userId)
-    .maybeSingle()
-
-  if (error || !data) {
-    throw new Error(error?.message || "Failed to fetch message usage")
-  }
-
-  const dailyLimit = isAuthenticated
-    ? AUTH_DAILY_MESSAGE_LIMIT
-    : NON_AUTH_DAILY_MESSAGE_LIMIT
-
-  const dailyCount = data.daily_message_count || 0
-  const dailyProCount = data.daily_pro_message_count || 0
-
-  return {
-    dailyCount,
-    dailyProCount,
-    dailyLimit,
-    remaining: dailyLimit - dailyCount,
-    remainingPro: DAILY_LIMIT_PRO_MODELS - dailyProCount,
+  try {
+    // Get actual usage data from the database
+    const usage = await checkUsage(userId)
+    const proUsage = await checkProUsage(userId)
+    
+    return {
+      dailyCount: usage.dailyCount,
+      dailyLimit: usage.dailyLimit,
+      dailyProCount: proUsage.dailyProCount,
+      dailyProLimit: proUsage.limit,
+      totalMessages: usage.userData.messageCount || 0,
+      remaining: Math.max(0, usage.dailyLimit - usage.dailyCount),
+      remainingPro: Math.max(0, proUsage.limit - proUsage.dailyProCount),
+      resetDate: usage.userData.dailyReset?.toISOString() || new Date().toISOString(),
+      premium: usage.userData.premium || false,
+    }
+  } catch (error) {
+    console.error("Error getting message usage:", error)
+    // Return defaults on error
+    return {
+      dailyCount: 0,
+      dailyLimit: 50,
+      dailyProCount: 0,
+      dailyProLimit: 10,
+      totalMessages: 0,
+      remaining: 50,
+      remainingPro: 10,
+      resetDate: new Date().toISOString(),
+      premium: false,
+    }
   }
 }

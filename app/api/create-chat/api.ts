@@ -1,5 +1,6 @@
-import { validateUserIdentity } from "@/lib/server/api"
-import { checkUsageByModel } from "@/lib/usage"
+// Mock create chat API - returns mock chat data since we removed Supabase
+
+import { prisma } from "@/lib/prisma"
 
 type CreateChatInput = {
   userId: string
@@ -9,52 +10,34 @@ type CreateChatInput = {
   projectId?: string
 }
 
-export async function createChatInDb({
+export async function createChat({
   userId,
   title,
   model,
   isAuthenticated,
   projectId,
-}: CreateChatInput) {
-  const supabase = await validateUserIdentity(userId, isAuthenticated)
-  if (!supabase) {
+}: CreateChatInput): Promise<{ id: string; title: string }> {
+  try {
+    // Create the chat in the database
+    const chat = await prisma.chat.create({
+      data: {
+        title: title || "New Chat",
+        model,
+        userId,
+        projectId: projectId || null,
+      },
+      select: {
+        id: true,
+        title: true,
+      },
+    })
+
     return {
-      id: crypto.randomUUID(),
-      user_id: userId,
-      title,
-      model,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      id: chat.id,
+      title: chat.title || "New Chat",
     }
-  }
-
-  await checkUsageByModel(supabase, userId, model, isAuthenticated)
-
-  const insertData: {
-    user_id: string
-    title: string
-    model: string
-    project_id?: string
-  } = {
-    user_id: userId,
-    title: title || "New Chat",
-    model,
-  }
-
-  if (projectId) {
-    insertData.project_id = projectId
-  }
-
-  const { data, error } = await supabase
-    .from("chats")
-    .insert(insertData)
-    .select("*")
-    .single()
-
-  if (error || !data) {
+  } catch (error) {
     console.error("Error creating chat:", error)
-    return null
+    throw new Error("Failed to create chat")
   }
-
-  return data
 }

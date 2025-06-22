@@ -1,48 +1,33 @@
 import { PROVIDERS } from "@/lib/providers"
-import { createClient } from "@/lib/supabase/server"
-import { NextResponse } from "next/server"
+import { auth } from "@/lib/auth/config"
+import { headers } from "next/headers"
 
 const SUPPORTED_PROVIDERS = PROVIDERS.map((p) => p.id)
 
 export async function GET() {
   try {
-    const supabase = await createClient()
-    if (!supabase) {
-      return NextResponse.json(
-        { error: "Supabase not available" },
-        { status: 500 }
-      )
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (!session?.user?.id) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data, error } = await supabase
-      .from("user_keys")
-      .select("provider")
-      .eq("user_id", authData.user.id)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    // Create status object for all supported providers
-    const userProviders = data?.map((k) => k.provider) || []
+    // Return all providers as false since we're not storing API keys
     const providerStatus = SUPPORTED_PROVIDERS.reduce(
       (acc, provider) => {
-        acc[provider] = userProviders.includes(provider)
+        acc[provider] = false
         return acc
       },
       {} as Record<string, boolean>
     )
 
-    return NextResponse.json(providerStatus)
+    return Response.json(providerStatus)
   } catch (err) {
     console.error("Key status error:", err)
-    return NextResponse.json(
+    return Response.json(
       { error: "Internal server error" },
       { status: 500 }
     )

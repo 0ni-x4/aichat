@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/lib/auth/config"
+import { headers } from "next/headers"
+import { prisma } from "@/lib/prisma"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(
@@ -6,38 +8,48 @@ export async function GET(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const { projectId } = await params
-    const supabase = await createClient()
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
 
-    if (!supabase) {
-      return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
-      )
-    }
-
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData?.user?.id) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .eq("id", projectId)
-      .eq("user_id", authData.user.id)
-      .single()
+    const { projectId } = await params
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+    // Get project from database
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        summary: true,
+        startDate: true,
+        targetDate: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        _count: {
+          select: {
+            chats: true,
+            memories: true,
+          },
+        },
+      },
+    })
 
-    if (!data) {
+    if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    return NextResponse.json(data)
+    if (project.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    return NextResponse.json(project)
   } catch (err: unknown) {
     console.error("Error in project endpoint:", err)
     return new Response(
@@ -54,8 +66,17 @@ export async function PUT(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { projectId } = await params
-    const { name } = await request.json()
+    const { name, description, summary, startDate, targetDate } = await request.json()
 
     if (!name?.trim()) {
       return NextResponse.json(
@@ -64,38 +85,50 @@ export async function PUT(
       )
     }
 
-    const supabase = await createClient()
+    // Verify the project exists and belongs to the user
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    })
 
-    if (!supabase) {
-      return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
-      )
-    }
-
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const { data, error } = await supabase
-      .from("projects")
-      .update({ name: name.trim() })
-      .eq("id", projectId)
-      .eq("user_id", authData.user.id)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    if (!data) {
+    if (!existingProject) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    return NextResponse.json(data)
+    if (existingProject.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    // Update the project
+    const updatedProject = await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        name: name.trim(),
+        description: description || null,
+        summary: summary || null,
+        startDate: startDate ? new Date(startDate) : null,
+        targetDate: targetDate ? new Date(targetDate) : null,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        summary: true,
+        startDate: true,
+        targetDate: true,
+        createdAt: true,
+        updatedAt: true,
+        userId: true,
+        _count: {
+          select: {
+            chats: true,
+            memories: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json(updatedProject)
   } catch (err: unknown) {
     console.error("Error updating project:", err)
     return new Response(
@@ -112,44 +145,35 @@ export async function DELETE(
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
-    const { projectId } = await params
-    const supabase = await createClient()
+    // Use Better Auth to get the current session
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
 
-    if (!supabase) {
-      return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
-      )
-    }
-
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData?.user?.id) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // First verify the project exists and belongs to the user
-    const { data: project, error: fetchError } = await supabase
-      .from("projects")
-      .select("id")
-      .eq("id", projectId)
-      .eq("user_id", authData.user.id)
-      .single()
+    const { projectId } = await params
 
-    if (fetchError || !project) {
+    // First verify the project exists and belongs to the user
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    })
+
+    if (!project) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 })
     }
 
-    // Delete the project (this will cascade delete related chats due to FK constraint)
-    const { error } = await supabase
-      .from("projects")
-      .delete()
-      .eq("id", projectId)
-      .eq("user_id", authData.user.id)
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (project.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
+
+    // Delete the project (this will cascade delete related chats and memories due to FK constraints)
+    await prisma.project.delete({
+      where: { id: projectId },
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: unknown) {

@@ -2,6 +2,7 @@
 "use client"
 
 import { UserProfile } from "@/app/types/user"
+import { useSession } from "@/lib/auth/client"
 import {
   fetchUserProfile,
   signOutUser,
@@ -25,10 +26,50 @@ export function UserProvider({
   initialUser,
 }: {
   children: React.ReactNode
-  initialUser: UserProfile | null
+  initialUser?: UserProfile | null
 }) {
-  const [user, setUser] = useState<UserProfile | null>(initialUser)
+  // Add error handling for useSession
+  let session = null
+  let isPending = false
+  
+  try {
+    const sessionData = useSession()
+    session = sessionData.data
+    isPending = sessionData.isPending
+  } catch (error) {
+    console.warn("Better Auth session unavailable:", error)
+    // Continue with guest user
+  }
+
+  const [user, setUser] = useState<UserProfile | null>(initialUser || null)
   const [isLoading, setIsLoading] = useState(false)
+
+  // Update user based on session
+  useEffect(() => {
+    if (session?.user) {
+      const sessionUser: UserProfile = {
+        id: session.user.id,
+        email: session.user.email,
+        display_name: session.user.name || session.user.email,
+        profile_image: session.user.image || "",
+        anonymous: false,
+        created_at: new Date().toISOString(),
+        daily_message_count: 0,
+        daily_reset: null,
+        message_count: 0,
+        preferred_model: null,
+        premium: false,
+        last_active_at: new Date().toISOString(),
+        daily_pro_message_count: 0,
+        daily_pro_reset: null,
+        system_prompt: null,
+      }
+      setUser(sessionUser)
+    } else if (!isPending) {
+      // No guest user - require authentication
+      setUser(null)
+    }
+  }, [session, isPending])
 
   const refreshUser = async () => {
     if (!user?.id) return
@@ -60,7 +101,12 @@ export function UserProvider({
     setIsLoading(true)
     try {
       const success = await signOutUser()
-      if (success) setUser(null)
+      if (success) {
+        // Clear user state on sign out
+        setUser(null)
+        // Redirect to login
+        window.location.href = "/auth"
+      }
     } finally {
       setIsLoading(false)
     }
@@ -81,7 +127,13 @@ export function UserProvider({
 
   return (
     <UserContext.Provider
-      value={{ user, isLoading, updateUser, refreshUser, signOut }}
+      value={{ 
+        user, 
+        isLoading: isLoading || isPending, 
+        updateUser, 
+        refreshUser, 
+        signOut 
+      }}
     >
       {children}
     </UserContext.Provider>

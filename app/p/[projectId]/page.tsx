@@ -1,9 +1,9 @@
-import { Chat } from "@/app/components/chat/chat"
 import { LayoutApp } from "@/app/components/layout/layout-app"
 import { ProjectView } from "@/app/p/[projectId]/project-view"
 import { MessagesProvider } from "@/lib/chat-store/messages/provider"
-import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { createClient } from "@/lib/supabase/server"
+import { auth } from "@/lib/auth/config"
+import { prisma } from "@/lib/prisma"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 type Props = {
@@ -13,26 +13,28 @@ type Props = {
 export default async function Page({ params }: Props) {
   const { projectId } = await params
 
-  if (isSupabaseEnabled) {
-    const supabase = await createClient()
-    if (supabase) {
-      const { data: userData, error: userError } = await supabase.auth.getUser()
-      if (userError || !userData?.user) {
-        redirect("/")
-      }
+  // Use Better Auth to get the current session
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
 
-      // Verify the project belongs to the user
-      const { data: project, error: projectError } = await supabase
-        .from("projects")
-        .select("*")
-        .eq("id", projectId)
-        .eq("user_id", userData.user.id)
-        .single()
+  if (!session?.user?.id) {
+    redirect("/auth")
+  }
 
-      if (projectError || !project) {
-        redirect("/")
-      }
+  // Verify the project belongs to the user
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { userId: true, name: true },
+    })
+
+    if (!project || project.userId !== session.user.id) {
+      redirect("/")
     }
+  } catch (error) {
+    console.error("Error fetching project:", error)
+    redirect("/")
   }
 
   return (

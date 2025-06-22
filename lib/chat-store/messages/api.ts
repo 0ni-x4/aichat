@@ -1,97 +1,98 @@
-import { createClient } from "@/lib/supabase/client"
-import { isSupabaseEnabled } from "@/lib/supabase/config"
 import type { Message as MessageAISDK } from "ai"
 import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 
+// Client-side API that makes HTTP requests to server
 export async function getMessagesFromDb(
   chatId: string
 ): Promise<MessageAISDK[]> {
-  // fallback to local cache only
-  if (!isSupabaseEnabled) {
-    const cached = await getCachedMessages(chatId)
-    return cached
+  try {
+    // Make HTTP request to server API
+    const response = await fetch(`/api/chats/${chatId}/messages`)
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const messages = await response.json()
+    
+    // Cache the results
+    await writeToIndexedDB("messages", { id: chatId, messages })
+    
+    return messages
+  } catch (error) {
+    console.error("Failed to get messages from server:", error)
+    // Fallback to cached data
+    return await getCachedMessages(chatId)
   }
-
-  const supabase = createClient()
-  if (!supabase) return []
-
-  const { data, error } = await supabase
-    .from("messages")
-    .select("id, content, role, experimental_attachments, created_at, parts")
-    .eq("chat_id", chatId)
-    .order("created_at", { ascending: true })
-
-  if (!data || error) {
-    console.error("Failed to fetch messages:", error)
-    return []
-  }
-
-  return data.map((message) => ({
-    ...message,
-    id: String(message.id),
-    content: message.content ?? "",
-    createdAt: new Date(message.created_at || ""),
-    parts: (message?.parts as MessageAISDK["parts"]) || undefined,
-  }))
 }
 
 async function insertMessageToDb(chatId: string, message: MessageAISDK) {
-  const supabase = createClient()
-  if (!supabase) return
-
-  await supabase.from("messages").insert({
-    chat_id: chatId,
-    role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
-  })
-}
-
-async function insertMessagesToDb(chatId: string, messages: MessageAISDK[]) {
-  const supabase = createClient()
-  if (!supabase) return
-
-  const payload = messages.map((message) => ({
-    chat_id: chatId,
-    role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
-  }))
-
-  await supabase.from("messages").insert(payload)
-}
-
-async function deleteMessagesFromDb(chatId: string) {
-  const supabase = createClient()
-  if (!supabase) return
-
-  const { error } = await supabase
-    .from("messages")
-    .delete()
-    .eq("chat_id", chatId)
-
-  if (error) {
-    console.error("Failed to clear messages from database:", error)
+  try {
+    const response = await fetch(`/api/chats/${chatId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    console.log(`Message saved to server for chat ${chatId}`)
+  } catch (error) {
+    console.error("Error saving message to server:", error)
   }
 }
 
-type ChatMessageEntry = {
-  id: string
-  messages: MessageAISDK[]
+async function insertMessagesToDb(chatId: string, messages: MessageAISDK[]) {
+  try {
+    const response = await fetch(`/api/chats/${chatId}/messages/bulk`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ messages }),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    console.log(`${messages.length} messages saved to server for chat ${chatId}`)
+  } catch (error) {
+    console.error("Error saving messages to server:", error)
+  }
 }
 
-export async function getCachedMessages(
-  chatId: string
-): Promise<MessageAISDK[]> {
-  const entry = await readFromIndexedDB<ChatMessageEntry>("messages", chatId)
+export async function getCachedMessages(chatId: string): Promise<MessageAISDK[]> {
+  try {
+    const cached = await readFromIndexedDB("messages", chatId) as { messages?: MessageAISDK[] } | null
+    return cached?.messages || []
+  } catch (error) {
+    console.error("Failed to get cached messages:", error)
+    return []
+  }
+}
 
-  if (!entry || Array.isArray(entry)) return []
-
-  return (entry.messages || []).sort(
-    (a, b) => +new Date(a.createdAt || 0) - +new Date(b.createdAt || 0)
-  )
+export async function clearMessagesForChat(chatId: string): Promise<void> {
+  try {
+    // Clear from server
+    const response = await fetch(`/api/chats/${chatId}/messages`, {
+      method: 'DELETE',
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    console.log(`Cleared messages from server for chat ${chatId}`)
+  } catch (error) {
+    console.error("Error clearing messages from server:", error)
+  }
+  
+  // Clear from cache
+  await writeToIndexedDB("messages", { id: chatId, messages: [] })
 }
 
 export async function cacheMessages(
@@ -105,10 +106,14 @@ export async function addMessage(
   chatId: string,
   message: MessageAISDK
 ): Promise<void> {
-  await insertMessageToDb(chatId, message)
+  // Save to server in background
+  insertMessageToDb(chatId, message).catch(err => 
+    console.error("Failed to save message to server:", err)
+  )
+  
+  // Update cache immediately
   const current = await getCachedMessages(chatId)
   const updated = [...current, message]
-
   await writeToIndexedDB("messages", { id: chatId, messages: updated })
 }
 
@@ -116,15 +121,12 @@ export async function setMessages(
   chatId: string,
   messages: MessageAISDK[]
 ): Promise<void> {
-  await insertMessagesToDb(chatId, messages)
+  // Save to server in background
+  insertMessagesToDb(chatId, messages).catch(err => 
+    console.error("Failed to save messages to server:", err)
+  )
+  
+  // Update cache immediately
   await writeToIndexedDB("messages", { id: chatId, messages })
 }
 
-export async function clearMessagesCache(chatId: string): Promise<void> {
-  await writeToIndexedDB("messages", { id: chatId, messages: [] })
-}
-
-export async function clearMessagesForChat(chatId: string): Promise<void> {
-  await deleteMessagesFromDb(chatId)
-  await clearMessagesCache(chatId)
-}

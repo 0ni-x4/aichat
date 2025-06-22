@@ -173,11 +173,9 @@ function PromptInputAction({
   side = "top",
   ...props
 }: PromptInputActionProps) {
-  const { disabled } = usePromptInput()
-
   return (
     <Tooltip {...props}>
-      <TooltipTrigger asChild disabled={disabled}>
+      <TooltipTrigger asChild>
         {children}
       </TooltipTrigger>
       <TooltipContent side={side} className={className}>

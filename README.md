@@ -1,81 +1,73 @@
-# Zola
+# Coreframe
 
-[zola.chat](https://zola.chat)
 
-**Zola** is the open-source chat interface for all your models.
+**Coreframe** is the open-source chat interface for all your models.
 
-![zola cover](./public/cover_zola.jpg)
+![Coreframe cover](./public/cover_coreframe.jpg)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/coreframe)
 
 ## Features
 
-- Multi-model support: OpenAI, Mistral, Claude, Gemini, Ollama (local models)
-- Bring your own API key (BYOK) support via OpenRouter
-- File uploads
-- Clean, responsive UI with light/dark themes
-- Built with Tailwind CSS, shadcn/ui, and prompt-kit
-- Open-source and self-hostable
-- Customizable: user system prompt, multiple layout options
-- Local AI with Ollama: Run models locally with automatic model detection
-- Full MCP support (wip)
+- **Multi-Model Support**: OpenAI, Claude, local Ollama models, and more
+- **BYOK (Bring Your Own Key)**: Securely use your own API keys
+- **Self-Hostable**: Deploy on your own infrastructure
+- **File Attachments**: Upload and chat about documents and images
+- **Export Conversations**: Download your chats as JSON or Markdown
+- **Dark/Light Mode**: Choose your preferred theme
 
 ## Quick Start
 
-### Option 1: With OpenAI (Cloud)
+### Local Development
 
 ```bash
-git clone https://github.com/ibelick/zola.git
-cd zola
-npm install
-echo "OPENAI_API_KEY=your-key" > .env.local
-npm run dev
-```
-
-### Option 2: With Ollama (Local)
-
-```bash
-# Install and start Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2  # or any model you prefer
-
-# Clone and run Zola
-git clone https://github.com/ibelick/zola.git
-cd zola
+# Clone and run Coreframe
+git clone https://github.com/0ni-x4/coreframe.git
+cd coreframe
 npm install
 npm run dev
 ```
 
-Zola will automatically detect your local Ollama models!
-
-### Option 3: Docker with Ollama
+### Production Deployment
 
 ```bash
-git clone https://github.com/ibelick/zola.git
-cd zola
-docker-compose -f docker-compose.ollama.yml up
+git clone https://github.com/0ni-x4/coreframe.git
+cd coreframe
+npm install
+npm run build
+npm start
 ```
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/zola)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/coreframe)
 
-To unlock features like auth, file uploads, see [INSTALL.md](./INSTALL.md).
+## Configuration
 
-## Built with
+See [INSTALL.md](./INSTALL.md) for detailed setup instructions including:
 
-- [prompt-kit](https://prompt-kit.com/) — AI components
-- [shadcn/ui](https://ui.shadcn.com) — core components
-- [motion-primitives](https://motion-primitives.com) — animated components
-- [vercel ai sdk](https://vercel.com/blog/introducing-the-vercel-ai-sdk) — model integration, AI features
-- [supabase](https://supabase.com) — auth and storage
+- Environment variables
+- Database setup (optional)
+- Authentication configuration
+- Model provider setup
+- Docker deployment options
 
-## Sponsors
+## Local Models with Ollama
 
-<a href="https://vercel.com/oss">
-  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-</a>
+Coreframe has built-in support for Ollama. Simply:
+
+1. Install and run Ollama locally
+2. Pull some models (`ollama pull llama2`)
+3. Start Coreframe - models will appear automatically!
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
 
 ## License
 
-Apache License 2.0
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-## Notes
+## Support
 
-This is a beta release. The codebase is evolving and may change.
+- 📖 [Documentation](./INSTALL.md)
+- 🐛 [Report Issues](https://github.com/ibelick/coreframe/issues)
+- 💬 [Discussions](https://github.com/ibelick/coreframe/discussions)

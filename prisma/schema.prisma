@@ -1,0 +1,211 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// Better Auth required tables
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Better Auth relations
+  accounts Account[]
+  sessions Session[]
+
+  // App specific fields
+  displayName   String?   @map("display_name")
+  profileImage  String?   @map("profile_image")
+  anonymous     Boolean   @default(false)
+  
+  // App usage tracking
+  messageCount       Int?      @default(0) @map("message_count")
+  dailyMessageCount  Int?      @default(0) @map("daily_message_count")
+  dailyReset         DateTime? @map("daily_reset")
+  premium            Boolean   @default(false)
+  lastActiveAt       DateTime? @map("last_active_at")
+  dailyProMessageCount Int?    @default(0) @map("daily_pro_message_count")
+  dailyProReset      DateTime? @map("daily_pro_reset")
+  systemPrompt       String?   @map("system_prompt")
+  preferredModel     String?   @map("preferred_model")
+  
+  // Memory usage tracking
+  memoryCount        Int?      @default(0) @map("memory_count")
+  dailyMemoryCount   Int?      @default(0) @map("daily_memory_count")
+  dailyMemoryReset   DateTime? @map("daily_memory_reset")
+
+  // App relations
+  chats      Chat[]
+  projects   Project[]
+  messages   Message[]
+  attachments ChatAttachment[]
+  projectMemories ProjectMemory[]
+
+  @@map("user")
+}
+
+model Account {
+  id                String    @id @default(cuid())
+  accountId         String
+  providerId        String
+  userId            String
+  accessToken       String?
+  refreshToken      String?
+  idToken           String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  password          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Better Auth relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+
+  // Better Auth relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// App-specific tables
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  summary     String?
+  startDate   DateTime? @map("start_date")
+  targetDate  DateTime? @map("target_date")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chats  Chat[]
+  memories ProjectMemory[]
+
+  @@map("projects")
+}
+
+model Chat {
+  id           String   @id @default(cuid())
+  title        String?
+  model        String?
+  systemPrompt String?  @map("system_prompt")
+  public       Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  userId    String  @map("user_id")
+  projectId String? @map("project_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  messages  Message[]
+  attachments ChatAttachment[]
+
+  @@map("chats")
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String?
+  role      String   // "user", "assistant", "system", "data", "tool", "tool-call"
+  parts     String?  // JSON string for complex message parts
+  experimentalAttachments String? @map("experimental_attachments") // JSON string
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  chatId String @map("chat_id")
+  userId String? @map("user_id")
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("messages")
+}
+
+model ChatAttachment {
+  id       String   @id @default(cuid())
+  fileUrl  String   @map("file_url")
+  fileName String?  @map("file_name")
+  fileType String?  @map("file_type")
+  fileSize Int?     @map("file_size")
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  chatId String @map("chat_id")
+  userId String @map("user_id")
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_attachments")
+}
+
+model ProjectMemory {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  summary   String?
+  tags      String?  // JSON array of tags
+  importance Int     @default(5) // 1-10 scale
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  projectId String  @map("project_id")
+  userId    String  @map("user_id")
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("project_memories")
+}

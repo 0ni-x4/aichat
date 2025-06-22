@@ -1,32 +1,21 @@
-import type { Database, Json } from "@/app/types/database.types"
-import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Attachment } from "@ai-sdk/ui-utils"
-
-export type SupabaseClientType = SupabaseClient<Database>
 
 export interface ContentPart {
   type: string
   text?: string
+  toolInvocation?: {
+    toolCallId?: string
+    toolName?: string
+    args?: Record<string, unknown>
+    result?: unknown
+    state?: string
+    step?: number
+  }
   toolCallId?: string
   toolName?: string
-  args?: Json
-  result?: Json
-  toolInvocation?: {
-    state: string
-    step: number
-    toolCallId: string
-    toolName: string
-    args?: Json
-    result?: Json
-  }
+  result?: unknown
   reasoning?: string
-  details?: Json[]
-}
-
-export interface Message {
-  role: "user" | "assistant" | "system" | "data" | "tool" | "tool-call"
-  content: string | null | ContentPart[]
-  reasoning?: string
+  details?: Array<{ type: string; text: string }>
 }
 
 export interface ChatApiParams {
@@ -35,8 +24,14 @@ export interface ChatApiParams {
   isAuthenticated: boolean
 }
 
+export interface Message {
+  role: "user" | "assistant" | "system" | "data" | "tool" | "tool-call"
+  content: string | null | ContentPart[]
+  reasoning?: string
+}
+
+// Updated interfaces without Supabase dependencies
 export interface LogUserMessageParams {
-  supabase: SupabaseClientType
   userId: string
   chatId: string
   content: string
@@ -46,7 +41,6 @@ export interface LogUserMessageParams {
 }
 
 export interface StoreAssistantMessageParams {
-  supabase: SupabaseClientType
   chatId: string
   messages: Message[]
 }

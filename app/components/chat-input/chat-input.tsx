@@ -104,12 +104,7 @@ export function ChatInput({
         item.type.startsWith("image/")
       )
 
-      if (!isUserAuthenticated && hasImageContent) {
-        e.preventDefault()
-        return
-      }
-
-      if (isUserAuthenticated && hasImageContent) {
+      if (hasImageContent) {
         const imageFiles: File[] = []
 
         for (const item of Array.from(items)) {
@@ -132,7 +127,7 @@ export function ChatInput({
       }
       // Text pasting will work by default for everyone
     },
-    [isUserAuthenticated, onFileUpload]
+    [onFileUpload]
   )
 
   useMemo(() => {
@@ -159,7 +154,7 @@ export function ChatInput({
         >
           <FileList files={files} onFileRemove={onFileRemove} />
           <PromptInputTextarea
-            placeholder="Ask Zola"
+            placeholder="Ask Coreframe"
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base"
@@ -168,7 +163,6 @@ export function ChatInput({
             <div className="flex gap-2">
               <ButtonFileUpload
                 onFileUpload={onFileUpload}
-                isUserAuthenticated={isUserAuthenticated}
                 model={selectedModel}
               />
               <ModelSelector
@@ -181,7 +175,6 @@ export function ChatInput({
                 <ButtonSearch
                   isSelected={enableSearch}
                   onToggle={setEnableSearch}
-                  isAuthenticated={isUserAuthenticated}
                 />
               ) : null}
             </div>

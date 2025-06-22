@@ -1,8 +1,5 @@
-import { createClient } from "@/lib/supabase/server"
-
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
     const { chatId, model } = await request.json()
 
     if (!chatId || !model) {
@@ -12,28 +9,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // If Supabase is not available, we still return success
-    if (!supabase) {
-      console.log("Supabase not enabled, skipping DB update")
-      return new Response(JSON.stringify({ success: true }), { status: 200 })
-    }
-
-    const { error } = await supabase
-      .from("chats")
-      .update({ model })
-      .eq("id", chatId)
-
-    if (error) {
-      console.error("Error updating chat model:", error)
-      return new Response(
-        JSON.stringify({
-          error: "Failed to update chat model",
-          details: error.message,
-        }),
-        { status: 500 }
-      )
-    }
-
+    // No Supabase - just return success since we're not storing chat data
+    console.log(`Mock update: Chat ${chatId} model changed to ${model}`)
+    
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
     })

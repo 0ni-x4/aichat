@@ -1,9 +1,8 @@
-import { createChatInDb } from "./api"
+import { createChat } from "./api"
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { userId, title, model, isAuthenticated, projectId } =
-      await request.json()
+    const { userId, title, model, isAuthenticated, projectId } = await req.json()
 
     if (!userId) {
       return new Response(JSON.stringify({ error: "Missing userId" }), {
@@ -11,7 +10,7 @@ export async function POST(request: Request) {
       })
     }
 
-    const chat = await createChatInDb({
+    const chat = await createChat({
       userId,
       title,
       model,
@@ -19,28 +18,11 @@ export async function POST(request: Request) {
       projectId,
     })
 
-    if (!chat) {
-      return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
-      )
-    }
-
-    return new Response(JSON.stringify({ chat }), { status: 200 })
+    return new Response(JSON.stringify(chat), { status: 200 })
   } catch (err: unknown) {
-    console.error("Error in create-chat endpoint:", err)
-
-    if (err instanceof Error && err.message === "DAILY_LIMIT_REACHED") {
-      return new Response(
-        JSON.stringify({ error: err.message, code: "DAILY_LIMIT_REACHED" }),
-        { status: 403 }
-      )
-    }
-
+    console.error("Error creating chat:", err)
     return new Response(
-      JSON.stringify({
-        error: (err as Error).message || "Internal server error",
-      }),
+      JSON.stringify({ error: (err as Error).message }),
       { status: 500 }
     )
   }

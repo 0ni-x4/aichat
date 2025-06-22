@@ -5,10 +5,10 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 })
 
 const nextConfig: NextConfig = withBundleAnalyzer({
-  output: 'standalone',
+  output: process.env.TAURI_PLATFORM ? 'export' : 'standalone',
+  trailingSlash: process.env.TAURI_PLATFORM ? true : false,
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react"],
-    nodeMiddleware: true,
   },
   images: {
     remotePatterns: [

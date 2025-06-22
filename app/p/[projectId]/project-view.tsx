@@ -20,6 +20,9 @@ import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { usePathname } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Brain } from "lucide-react"
+import Link from "next/link"
 
 type Project = {
   id: string
@@ -399,11 +402,21 @@ export function ProjectView({ projectId }: ProjectViewProps) {
               },
             }}
           >
-            <div className="mb-6 flex items-center justify-center gap-2">
-              <ChatCircleIcon className="text-muted-foreground" size={24} />
-              <h1 className="text-center text-3xl font-medium tracking-tight">
-                {project?.name || ""}
-              </h1>
+            <div className="mb-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <ChatCircleIcon className="text-muted-foreground" size={24} />
+                <h1 className="text-3xl font-medium tracking-tight">
+                  {project?.name || ""}
+                </h1>
+              </div>
+              <div className="flex justify-center">
+                <Link href={`/p/${projectId}/memories`}>
+                  <Button variant="outline" size="sm">
+                    <Brain className="h-4 w-4 mr-2" />
+                    Manage Memories
+                  </Button>
+                </Link>
+              </div>
             </div>
           </motion.div>
         ) : (

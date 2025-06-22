@@ -9,11 +9,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { signInWithGoogle } from "@/lib/api"
-import { createClient } from "@/lib/supabase/client"
-import { isSupabaseEnabled } from "@/lib/supabase/config"
+import { signIn } from "@/lib/auth/client"
 
 import { useState } from "react"
+
+const isDesktop = () => {
+  return typeof window !== "undefined" && 
+         typeof (window as any).__TAURI__ !== "undefined"
+}
 
 type DialogAuthProps = {
   open: boolean
@@ -24,26 +27,24 @@ export function DialogAuth({ open, setOpen }: DialogAuthProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (!isSupabaseEnabled) {
-    return null
-  }
-
-  const supabase = createClient()
-
-  if (!supabase) {
-    return null
-  }
-
   const handleSignInWithGoogle = async () => {
     try {
       setIsLoading(true)
       setError(null)
 
-      const data = await signInWithGoogle(supabase)
+      if (isDesktop()) {
+        // Desktop OAuth flow - redirect to login page
+        window.location.href = "/auth"
+      } else {
+        // Web OAuth flow
+        const data = await signIn.social({
+          provider: "google",
+          callbackURL: "/",
+        })
 
-      // Redirect to the provider URL
-      if (data?.url) {
-        window.location.href = data.url
+        if (data.error) {
+          setError(data.error.message || "Failed to sign in with Google")
+        }
       }
     } catch (err: unknown) {
       console.error("Error signing in with Google:", err)

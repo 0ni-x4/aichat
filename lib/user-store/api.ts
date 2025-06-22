@@ -1,32 +1,20 @@
 // @todo: move in /lib/user/api.ts
 import { UserProfile } from "@/app/types/user"
 import { toast } from "@/components/ui/toast"
-import { createClient } from "@/lib/supabase/client"
+import { signOut } from "@/lib/auth/client"
 
 export async function fetchUserProfile(
   id: string
 ): Promise<UserProfile | null> {
-  const supabase = createClient()
-  if (!supabase) return null
-
-  const { data, error } = await supabase
-    .from("users")
-    .select("*")
-    .eq("id", id)
-    .single()
-
-  if (error || !data) {
+  try {
+    const response = await fetch(`/api/user/${id}`)
+    if (!response.ok) return null
+    
+    const data = await response.json()
+    return data
+  } catch (error) {
     console.error("Failed to fetch user:", error)
     return null
-  }
-
-  // Don't return anonymous users
-  if (data.anonymous) return null
-
-  return {
-    ...data,
-    profile_image: data.profile_image || "",
-    display_name: data.display_name || "",
   }
 }
 
@@ -34,62 +22,46 @@ export async function updateUserProfile(
   id: string,
   updates: Partial<UserProfile>
 ): Promise<boolean> {
-  const supabase = createClient()
-  if (!supabase) return false
-
-  const { error } = await supabase.from("users").update(updates).eq("id", id)
-
-  if (error) {
+  try {
+    const response = await fetch(`/api/user/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    })
+    
+    return response.ok
+  } catch (error) {
     console.error("Failed to update user:", error)
     return false
   }
-
-  return true
 }
 
 export async function signOutUser(): Promise<boolean> {
-  const supabase = createClient()
-  if (!supabase) {
+  try {
+    const result = await signOut()
+    if (result.error) {
+      console.error("Failed to sign out:", result.error)
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error("Failed to sign out:", error)
     toast({
-      title: "Sign out is not supported in this deployment",
-      status: "info",
+      title: "Failed to sign out",
+      description: "Please try again.",
+      status: "error",
     })
     return false
   }
-
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    console.error("Failed to sign out:", error)
-    return false
-  }
-
-  return true
 }
 
 export function subscribeToUserUpdates(
   userId: string,
   onUpdate: (newData: Partial<UserProfile>) => void
 ) {
-  const supabase = createClient()
-  if (!supabase) return () => {}
-
-  const channel = supabase
-    .channel(`public:users:id=eq.${userId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "UPDATE",
-        schema: "public",
-        table: "users",
-        filter: `id=eq.${userId}`,
-      },
-      (payload) => {
-        onUpdate(payload.new as Partial<UserProfile>)
-      }
-    )
-    .subscribe()
-
-  return () => {
-    supabase.removeChannel(channel)
-  }
+  // For now, return a no-op function since we're not using real-time updates
+  // Could implement with WebSockets or polling if needed
+  return () => {}
 }

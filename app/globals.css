@@ -147,6 +147,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;
   }
 }
 
@@ -159,4 +160,39 @@ code {
 /* sonner toast */
 [data-sonner-toaster] > li {
   width: 100%;
+}
+
+/* Tauri specific styles for window controls */
+@media (any-pointer: fine) {
+  /* Desktop styles - add padding for traffic lights */
+  html.tauri {
+    overflow: hidden;
+  }
+  
+  body.tauri {
+    overscroll-behavior: none;
+    /* Add padding to account for macOS traffic lights - they are about 28px high */
+    padding-top: 28px;
+    height: calc(100vh - 28px);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
+  }
+  
+  /* Make the app area dragable on macOS */
+  .tauri-drag-region {
+    -webkit-app-region: drag;
+    app-region: drag;
+    pointer-events: auto;
+  }
+  
+  .tauri-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  
+  /* Ensure interactive elements work properly */
+  .tauri-no-drag * {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
 }

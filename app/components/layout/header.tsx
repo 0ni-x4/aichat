@@ -5,7 +5,7 @@ import { AppInfoTrigger } from "@/app/components/layout/app-info/app-info-trigge
 import { ButtonNewChat } from "@/app/components/layout/button-new-chat"
 import { UserMenu } from "@/app/components/layout/user-menu"
 import { useBreakpoint } from "@/app/hooks/use-breakpoint"
-import { ZolaIcon } from "@/components/icons/zola"
+import { CoreframeIcon } from "@/components/icons/coreframe"
 import { Button } from "@/components/ui/button"
 import { APP_NAME } from "@/lib/config"
 import { useUser } from "@/lib/user-store/provider"
@@ -22,29 +22,31 @@ export function Header({ hasSidebar }: { hasSidebar: boolean }) {
 
   return (
     <header className="h-app-header pointer-events-none fixed top-0 right-0 left-0 z-50">
-      <div className="relative mx-auto flex h-full max-w-full items-center justify-between bg-transparent px-4 sm:px-6 lg:bg-transparent lg:px-8">
+      {/* Tauri drag region for macOS window dragging */}
+      <div className="tauri-drag-region absolute inset-0 z-0" />
+      <div className="relative mx-auto flex h-full max-w-full items-center justify-between bg-transparent px-4 sm:px-6 lg:bg-transparent lg:px-8 z-10">
         <div className="flex flex-1 items-center justify-between">
           <div className="-ml-0.5 flex flex-1 items-center gap-2 lg:-ml-2.5">
             <div className="flex flex-1 items-center gap-2">
               <Link
                 href="/"
-                className="pointer-events-auto inline-flex items-center text-xl font-medium tracking-tight"
+                className="pointer-events-auto inline-flex items-center text-xl font-medium tracking-tight tauri-no-drag"
               >
-                <ZolaIcon className="mr-1 size-4" />
+                <CoreframeIcon className="mr-1 size-4" />
                 {APP_NAME}
               </Link>
-              {hasSidebar && isMobile && <HeaderSidebarTrigger />}
+              {hasSidebar && isMobile && <HeaderSidebarTrigger className="tauri-no-drag" />}
             </div>
           </div>
           <div />
           {!isLoggedIn ? (
-            <div className="pointer-events-auto flex flex-1 items-center justify-end gap-4">
+            <div className="pointer-events-auto flex flex-1 items-center justify-end gap-4 tauri-no-drag">
               <AppInfoTrigger
                 trigger={
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="bg-background hover:bg-muted text-muted-foreground h-8 w-8 rounded-full"
+                    className="bg-background hover:bg-muted text-muted-foreground h-8 w-8 rounded-full tauri-no-drag"
                     aria-label={`About ${APP_NAME}`}
                   >
                     <Info className="size-4" />
@@ -53,13 +55,13 @@ export function Header({ hasSidebar }: { hasSidebar: boolean }) {
               />
               <Link
                 href="/auth"
-                className="font-base text-muted-foreground hover:text-foreground text-base transition-colors"
+                className="font-base text-muted-foreground hover:text-foreground text-base transition-colors tauri-no-drag"
               >
                 Login
               </Link>
             </div>
           ) : (
-            <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
+            <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2 tauri-no-drag">
               <DialogPublish />
               <ButtonNewChat />
               {!hasSidebar && <HistoryTrigger hasSidebar={hasSidebar} />}

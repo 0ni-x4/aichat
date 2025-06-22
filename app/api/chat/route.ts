@@ -3,25 +3,26 @@ import { getAllModels } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, ToolSet } from "ai"
+import { Message as MessageAISDK, streamText, NoSuchToolError, InvalidToolArgumentsError, ToolExecutionError } from "ai"
 import {
   logUserMessage,
   storeAssistantMessage,
   validateAndTrackUsage,
 } from "./api"
 import { createErrorResponse, extractErrorMessage } from "./utils"
+import { coreframeTools } from "@/tools"
 
-export const maxDuration = 60
-
-type ChatRequest = {
+interface ChatRequest {
   messages: MessageAISDK[]
   chatId: string
   userId: string
   model: string
   isAuthenticated: boolean
-  systemPrompt: string
-  enableSearch: boolean
+  systemPrompt?: string
+  enableSearch?: boolean
 }
+
+export const maxDuration = 60
 
 export async function POST(req: Request) {
   try {
@@ -42,7 +43,8 @@ export async function POST(req: Request) {
       )
     }
 
-    const supabase = await validateAndTrackUsage({
+    // No Supabase, so this returns null - we don't need it anymore
+    await validateAndTrackUsage({
       userId,
       model,
       isAuthenticated,
@@ -50,9 +52,9 @@ export async function POST(req: Request) {
 
     const userMessage = messages[messages.length - 1]
 
-    if (supabase && userMessage?.role === "user") {
+    // Mock log user message (no database)
+    if (userMessage?.role === "user") {
       await logUserMessage({
-        supabase,
         userId,
         chatId,
         content: userMessage.content,
@@ -69,22 +71,54 @@ export async function POST(req: Request) {
       throw new Error(`Model ${model} not found`)
     }
 
-    const effectiveSystemPrompt = systemPrompt || SYSTEM_PROMPT_DEFAULT
+    // Enhanced system prompt for AI SDK 5 tools
+    const toolEnhancedPrompt = `${systemPrompt || SYSTEM_PROMPT_DEFAULT}
+
+## Available Tools
+
+You have access to comprehensive project and memory management tools:
+
+### Memory Management
+- **createMemory**: Store important information, insights, or context for projects
+- **getMemories**: Retrieve stored memories from projects
+- **updateMemory**: Modify existing memories
+- **deleteMemory**: Remove outdated memories
+
+### Project Management  
+- **getProjects**: List all user projects
+- **getProject**: Get detailed project information
+- **createProject**: Create new projects to organize work
+- **updateProject**: Modify project details
+
+### Analytics & Context
+- **getMemoryStats**: Check memory usage statistics
+- **getMemoryAnalytics**: Get comprehensive memory analytics
+- **getCurrentProjectContext**: Understand current project context
+
+## Tool Usage Guidelines
+
+1. **Always check project context first** using getCurrentProjectContext
+2. **Create memories for important information** shared by the user
+3. **Retrieve relevant memories** when discussing project-related topics
+4. **Be proactive** in organizing information into projects and memories
+5. **Use analytics** to provide insights about the user's work patterns
+
+Remember: You are helping users build an organized knowledge base through intelligent memory and project management.`
 
     let apiKey: string | undefined
     if (isAuthenticated && userId) {
       const { getEffectiveApiKey } = await import("@/lib/user-keys")
       const provider = getProviderForModel(model)
       apiKey =
-        (await getEffectiveApiKey(userId, provider as ProviderWithoutOllama)) ||
+        (await getEffectiveApiKey(userId, provider as any)) ||
         undefined
     }
 
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
-      system: effectiveSystemPrompt,
+      system: toolEnhancedPrompt,
       messages: messages,
-      tools: {} as ToolSet,
+      tools: coreframeTools,
       maxSteps: 10,
       onError: (err: unknown) => {
         console.error("Streaming error occurred:", err)
@@ -92,14 +126,12 @@ export async function POST(req: Request) {
       },
 
       onFinish: async ({ response }) => {
-        if (supabase) {
-          await storeAssistantMessage({
-            supabase,
-            chatId,
-            messages:
-              response.messages as unknown as import("@/app/types/api.types").Message[],
-          })
-        }
+        // Mock store assistant message (no database)
+        await storeAssistantMessage({
+          chatId,
+          messages:
+            response.messages as unknown as import("@/app/types/api.types").Message[],
+        })
       },
     })
 
@@ -108,6 +140,16 @@ export async function POST(req: Request) {
       sendSources: true,
       getErrorMessage: (error: unknown) => {
         console.error("Error forwarded to client:", error)
+        
+        // Handle AI SDK 5 tool-specific errors
+        if (NoSuchToolError.isInstance(error)) {
+          return 'The AI tried to use a tool that is not available. Please try again.'
+        } else if (InvalidToolArgumentsError.isInstance(error)) {
+          return 'The AI called a tool with invalid arguments. Please try rephrasing your request.'
+        } else if (ToolExecutionError.isInstance(error)) {
+          return 'A tool encountered an error during execution. Please try again.'
+        }
+        
         return extractErrorMessage(error)
       },
     })
